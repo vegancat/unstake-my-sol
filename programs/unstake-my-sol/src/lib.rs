@@ -6,7 +6,13 @@ declare_id!("2s5Phqos3TVKh6CyuFqm8vQukzxueJfMWgtci224h9qc");
 pub mod unstake_my_sol {
     use super::*;
 
-    pub fn create_liquidity_acc(ctx: Context<CreateLiquidityAcc>) -> Result<()> {
+    pub fn create_liquidity_acc(ctx: Context<CreateLiquidityAcc>, commission: u16) -> Result<()> {
+        let liquidity_acc = &mut ctx.accounts.liquidity_acc;
+        let user = &mut ctx.accounts.user;
+
+        liquidity_acc.commission = commission;
+        liquidity_acc.owner = user.key();
+
         Ok(())
     }
 
