@@ -2,13 +2,13 @@
 seeds = false
 skip-lint = false
 [programs.localnet]
-unstake_my_sol = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+unstake_my_sol = "2s5Phqos3TVKh6CyuFqm8vQukzxueJfMWgtci224h9qc"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "localnet"
+cluster = "https://solana-devnet.g.alchemy.com/v2/GYjR1mO4JjwZ1mC6LLuwCVrFWFLY6BWX"
 wallet = "/home/nick/.config/solana/id.json"
 
 [scripts]
