@@ -71,7 +71,29 @@ pub mod unstake_my_sol {
         Ok(())
     }
 
-    pub fn liquidate(ctx: Context<Liquidate>) -> Result<()> {
+    pub fn liquidate(ctx: Context<Liquidate>, amount: u64) -> Result<()> {
+        let liquidity_acc = &mut ctx.accounts.liquidity_acc;
+        let stake_account = &mut ctx.accounts.stake_account;
+        let clock_sysvar = &ctx.accounts.clock_sysvar;
+        let stake_history_sysvar = &ctx.accounts.stake_history_sysvar;
+
+        invoke_signed(
+            &Stake::instruction::withdraw(
+                &stake_account.key(),
+                &liquidity_acc.key(),
+                &liquidity_acc.key(),
+                amount,
+                None,
+            ),
+            &[
+                stake_account.to_account_info(),
+                liquidity_acc.to_account_info(),
+                clock_sysvar.to_account_info(),
+                stake_history_sysvar.to_account_info(),
+            ],
+            &[&[b"liquidity-account", &[liquidity_acc.bump]]],
+        )?;
+
         Ok(())
     }
 }
@@ -97,7 +119,7 @@ pub struct Deposit<'info> {
     #[account(mut, seeds = [b"liquidity-account", user.key().as_ref()], bump = liquidity_acc.bump)]
     pub liquidity_acc: Account<'info, LiquidityAccount>,
     pub user: Signer<'info>,
-    system_program: Program<'info, System>,
+    pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
@@ -105,16 +127,26 @@ pub struct Withdraw<'info> {
     #[account(mut, seeds = [b"liquidity-account", user.key().as_ref()], bump = liquidity_acc.bump)]
     pub liquidity_acc: Account<'info, LiquidityAccount>,
     pub user: Signer<'info>,
-    system_program: Program<'info, System>,
+    pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
 pub struct Swap<'info> {
-    system_program: Program<'info, System>,
+    pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
-pub struct Liquidate {}
+pub struct Liquidate<'info> {
+    /// CHECK: validated inside instruction
+    pub stake_program: AccountInfo<'info>,
+    #[account(mut, seeds = [b"liquidity-account", user.key().as_ref()], bump = liquidity_acc.bump)]
+    pub liquidity_acc: Account<'info, LiquidityAccount>,
+    /// CHECK: if it was the wrong account tx simply fails
+    pub stake_account: AccountInfo<'info>,
+    user: Signer<'info>,
+    pub clock_sysvar: Sysvar<'info, Clock>,
+    pub stake_history_sysvar: Sysvar<'info, StakeHistory>,
+}
 
 #[account]
 pub struct LiquidityAccount {
