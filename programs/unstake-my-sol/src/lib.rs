@@ -1,4 +1,9 @@
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::{
+    program::{invoke, invoke_signed},
+    stake as Stake, system_instruction, vote as Vote,
+};
+use anchor_lang::system_program;
 
 declare_id!("2s5Phqos3TVKh6CyuFqm8vQukzxueJfMWgtci224h9qc");
 
@@ -8,29 +13,42 @@ pub mod unstake_my_sol {
 
     pub fn create_liquidity_acc(ctx: Context<CreateLiquidityAcc>, commission: u16) -> Result<()> {
         let liquidity_acc = &mut ctx.accounts.liquidity_acc;
-        let user = &mut ctx.accounts.user;
+        let bump = *ctx.bumps.get("liquidity-account").unwrap();
 
         liquidity_acc.commission = commission;
-        liquidity_acc.owner = user.key();
-
+        liquidity_acc.balance = 0;
+        liquidity_acc.bump = bump;
         Ok(())
     }
 
     pub fn update_commission(ctx: Context<UpdateCommission>, commission: u16) -> Result<()> {
         let liquidity_acc = &mut ctx.accounts.liquidity_acc;
-        let user = &mut ctx.accounts.user;
 
-        require_keys_eq!(user.key(), liquidity_acc.owner);
         liquidity_acc.commission = commission;
 
         Ok(())
     }
 
-    pub fn deposit(ctx: Context<Deposit>) -> Result<()> {
+    pub fn deposit(ctx: Context<Deposit>, amount: u64) -> Result<()> {
+        let user = &mut ctx.accounts.user;
+        let liquidity_acc = &mut ctx.accounts.liquidity_acc;
+        let system_program_account_info = &ctx.accounts.system_program.to_account_info();
+
+        liquidity_acc.balance += amount;
+
+        invoke(
+            &system_instruction::transfer(&user.key(), &liquidity_acc.key(), amount),
+            &[
+                user.to_account_info(),
+                liquidity_acc.to_account_info(),
+                system_program_account_info.clone(),
+            ],
+        )?;
+
         Ok(())
     }
 
-    pub fn withdraw(ctx: Context<Withdraw>) -> Result<()> {
+    pub fn withdraw(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
         Ok(())
     }
 
@@ -45,7 +63,7 @@ pub mod unstake_my_sol {
 
 #[derive(Accounts)]
 pub struct CreateLiquidityAcc<'info> {
-    #[account(init, payer = user, space = 8 + 2 + 32)]
+    #[account(init, payer = user, space = 8 + 2 + 1 + 8, seeds = [b"liquidity-account", user.key().as_ref()], bump)]
     pub liquidity_acc: Account<'info, LiquidityAccount>,
     #[account(mut)]
     pub user: Signer<'info>,
@@ -54,19 +72,28 @@ pub struct CreateLiquidityAcc<'info> {
 
 #[derive(Accounts)]
 pub struct UpdateCommission<'info> {
-    #[account(mut)]
+    #[account(mut, seeds = [b"liquidity-account", user.key().as_ref()], bump = liquidity_acc.bump)]
     pub liquidity_acc: Account<'info, LiquidityAccount>,
     pub user: Signer<'info>,
 }
 
 #[derive(Accounts)]
-pub struct Deposit {}
+pub struct Deposit<'info> {
+    #[account(mut, seeds = [b"liquidity-account", user.key().as_ref()], bump = liquidity_acc.bump)]
+    pub liquidity_acc: Account<'info, LiquidityAccount>,
+    pub user: Signer<'info>,
+    system_program: Program<'info, System>,
+}
 
 #[derive(Accounts)]
-pub struct Withdraw {}
+pub struct Withdraw<'info> {
+    system_program: Program<'info, System>,
+}
 
 #[derive(Accounts)]
-pub struct Swap {}
+pub struct Swap<'info> {
+    system_program: Program<'info, System>,
+}
 
 #[derive(Accounts)]
 pub struct Liquidate {}
@@ -74,5 +101,6 @@ pub struct Liquidate {}
 #[account]
 pub struct LiquidityAccount {
     commission: u16, // 2
-    owner: Pubkey,   // 32
+    bump: u8,        // 1
+    balance: u64,    // 8
 }
