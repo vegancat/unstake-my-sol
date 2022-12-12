@@ -49,6 +49,21 @@ pub mod unstake_my_sol {
     }
 
     pub fn withdraw(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
+        let user = &mut ctx.accounts.user;
+        let liquidity_acc = &mut ctx.accounts.liquidity_acc;
+        let system_program_account_info = &ctx.accounts.system_program.to_account_info();
+
+        invoke_signed(
+            &system_instruction::transfer(&liquidity_acc.key(), &user.key(), amount),
+            &[
+                liquidity_acc.to_account_info(),
+                user.to_account_info(),
+                system_program_account_info.clone(),
+            ],
+            &[&[b"liquidity-account", &[liquidity_acc.bump]]],
+        )?;
+
+        liquidity_acc.balance -= amount;
         Ok(())
     }
 
@@ -87,6 +102,9 @@ pub struct Deposit<'info> {
 
 #[derive(Accounts)]
 pub struct Withdraw<'info> {
+    #[account(mut, seeds = [b"liquidity-account", user.key().as_ref()], bump = liquidity_acc.bump)]
+    pub liquidity_acc: Account<'info, LiquidityAccount>,
+    pub user: Signer<'info>,
     system_program: Program<'info, System>,
 }
 
