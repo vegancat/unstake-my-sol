@@ -67,7 +67,42 @@ pub mod unstake_my_sol {
         Ok(())
     }
 
-    pub fn swap(ctx: Context<Swap>) -> Result<()> {
+    pub fn swap(ctx: Context<Swap>, amount: u64) -> Result<()> {
+        let liquidity_acc = &mut ctx.accounts.liquidity_acc;
+        let stake_account = &mut ctx.accounts.stake_account;
+        let clock_sysvar = &ctx.accounts.clock_sysvar;
+        let user = &mut ctx.accounts.user;
+        let system_program_account_info = &ctx.accounts.system_program.to_account_info();
+
+        require_eq!(stake_account.try_lamports()?, amount);
+
+        let amount_to_pay = amount - (amount * liquidity_acc.commission as u64 / 10000);
+        invoke_signed(
+            &system_instruction::transfer(&liquidity_acc.key(), &user.key(), amount_to_pay),
+            &[
+                liquidity_acc.to_account_info(),
+                user.to_account_info(),
+                system_program_account_info.clone(),
+            ],
+            &[&[b"liquidity-account", &[liquidity_acc.bump]]],
+        )?;
+
+        invoke(
+            &Stake::instruction::authorize(
+                &stake_account.key(),
+                &user.key(),
+                &liquidity_acc.key(),
+                Stake::state::StakeAuthorize::Withdrawer,
+                None,
+            ),
+            &[
+                stake_account.to_account_info(),
+                liquidity_acc.to_account_info(),
+                clock_sysvar.to_account_info(),
+            ],
+        )?;
+
+        liquidity_acc.balance -= amount_to_pay;
         Ok(())
     }
 
@@ -93,6 +128,8 @@ pub mod unstake_my_sol {
             ],
             &[&[b"liquidity-account", &[liquidity_acc.bump]]],
         )?;
+
+        liquidity_acc.balance += amount;
 
         Ok(())
     }
@@ -133,12 +170,17 @@ pub struct Withdraw<'info> {
 #[derive(Accounts)]
 pub struct Swap<'info> {
     pub system_program: Program<'info, System>,
+    #[account(mut, seeds = [b"liquidity-account", user.key().as_ref()], bump = liquidity_acc.bump)]
+    pub liquidity_acc: Account<'info, LiquidityAccount>,
+    /// CHECK: if it was the wrong account tx simply fails
+    pub stake_account: AccountInfo<'info>,
+    user: Signer<'info>,
+    pub clock_sysvar: Sysvar<'info, Clock>,
+    pub stake_history_sysvar: Sysvar<'info, StakeHistory>,
 }
 
 #[derive(Accounts)]
 pub struct Liquidate<'info> {
-    /// CHECK: validated inside instruction
-    pub stake_program: AccountInfo<'info>,
     #[account(mut, seeds = [b"liquidity-account", user.key().as_ref()], bump = liquidity_acc.bump)]
     pub liquidity_acc: Account<'info, LiquidityAccount>,
     /// CHECK: if it was the wrong account tx simply fails
