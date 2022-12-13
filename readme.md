@@ -4,6 +4,9 @@ This project provides a novel approach for NFT collections to earn royalty alike
 ## Motivation
 There are times people are in a hurry and want to liquidate their stake accounts without waiting for a few epochs. The idea of this project is to provide a win-win solution for both the NFT collection and the user.
 
+## Walk-through
+Demo: https://youtu.be/qT6zbGiuEfQ
+
 ## How it works
 NFT collection can create a liquidity account for themselves and setup their desired commission for their liquidity similar to royalty in NFTs.
 

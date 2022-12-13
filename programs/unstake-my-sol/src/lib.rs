@@ -1,9 +1,8 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::{
     program::{invoke, invoke_signed},
-    stake as Stake, system_instruction, vote as Vote,
+    stake as Stake, system_instruction,
 };
-use anchor_lang::system_program;
 
 declare_id!("2s5Phqos3TVKh6CyuFqm8vQukzxueJfMWgtci224h9qc");
 
@@ -76,6 +75,8 @@ pub mod unstake_my_sol {
 
         require_eq!(stake_account.try_lamports()?, amount);
 
+        // TODO: apply lower commission if user holds a certain NFT
+
         let amount_to_pay = amount - (amount * liquidity_acc.commission as u64 / 10000);
         invoke_signed(
             &system_instruction::transfer(&liquidity_acc.key(), &user.key(), amount_to_pay),
@@ -93,6 +94,21 @@ pub mod unstake_my_sol {
                 &user.key(),
                 &liquidity_acc.key(),
                 Stake::state::StakeAuthorize::Withdrawer,
+                None,
+            ),
+            &[
+                stake_account.to_account_info(),
+                liquidity_acc.to_account_info(),
+                clock_sysvar.to_account_info(),
+            ],
+        )?;
+
+        invoke(
+            &Stake::instruction::authorize(
+                &stake_account.key(),
+                &user.key(),
+                &liquidity_acc.key(),
+                Stake::state::StakeAuthorize::Staker,
                 None,
             ),
             &[
