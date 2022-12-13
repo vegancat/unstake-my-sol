@@ -19,3 +19,5 @@ Users would swap their current stake account for the SOL provided and pay the co
 2. Users get their SOL instantly
 3. Projects keep their treasury in native SOL and it boosts the morale in NFT community and also helps with the price of SOL
 
+## My Solana wallet
+5j8F6qexyuMg3DdUjRvnHqAtkkLktz8SVpt6MWfUkgcG
